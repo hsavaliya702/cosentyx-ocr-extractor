@@ -1,4 +1,5 @@
 """Extraction package."""
+
 from src.extraction.base_extractor import BaseExtractor
 from src.extraction.patient_extractor import PatientExtractor
 from src.extraction.prescriber_extractor import PrescriberExtractor

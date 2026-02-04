@@ -1,4 +1,5 @@
 """Data models package."""
+
 from src.models.patient import PatientInfo, PatientField
 from src.models.prescriber import PrescriberInfo, PrescriberField, Address
 from src.models.prescription import PrescriptionInfo, PrescriptionField

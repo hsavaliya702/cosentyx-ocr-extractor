@@ -1,4 +1,5 @@
 """Tests for extractor classes."""
+
 import pytest
 from src.extraction.patient_extractor import PatientExtractor
 from src.extraction.prescriber_extractor import PrescriberExtractor
@@ -12,9 +13,9 @@ class TestPatientExtractor:
         """Test extracting patient info from forms."""
         extractor = PatientExtractor()
         textract_data = {"forms": sample_forms_data}
-        
+
         patient = extractor.extract(textract_data)
-        
+
         assert patient.first_name.value == "John"
         assert patient.first_name.validated
         assert patient.last_name.value == "Doe"
@@ -28,9 +29,17 @@ class TestPatientExtractor:
         """Test extracting patient info from payload."""
         extractor = PatientExtractor()
         textract_data = {"forms": {}}
-        
-        patient = extractor.extract(textract_data, sample_payload_data)
-        
+
+        # Payload uses standard keys that match the FIELD_MAPPINGS
+        payload = {
+            "patient first name": "John",
+            "patient last name": "Doe",
+            "date of birth": "01/15/1980",
+            "gender": "M",
+        }
+
+        patient = extractor.extract(textract_data, payload)
+
         assert patient.first_name.value == "John"
         assert patient.first_name.source == "payload"
         assert patient.last_name.value == "Doe"
@@ -40,9 +49,9 @@ class TestPatientExtractor:
         """Test patient validation."""
         extractor = PatientExtractor()
         textract_data = {"forms": sample_forms_data}
-        
+
         patient = extractor.extract(textract_data)
-        
+
         assert patient.is_valid()
 
 
@@ -53,9 +62,9 @@ class TestPrescriberExtractor:
         """Test extracting prescriber info."""
         extractor = PrescriberExtractor()
         textract_data = {"forms": sample_forms_data}
-        
+
         prescriber = extractor.extract(textract_data)
-        
+
         assert prescriber.first_name.value == "Jane"
         assert prescriber.last_name.value == "Smith"
         assert prescriber.npi.value == "1234567890"
@@ -68,9 +77,9 @@ class TestPrescriberExtractor:
         """Test prescriber validation."""
         extractor = PrescriberExtractor()
         textract_data = {"forms": sample_forms_data}
-        
+
         prescriber = extractor.extract(textract_data)
-        
+
         assert prescriber.is_valid()
 
 
@@ -81,9 +90,9 @@ class TestPrescriptionExtractor:
         """Test extracting prescription info."""
         extractor = PrescriptionExtractor()
         textract_data = {"forms": sample_forms_data}
-        
+
         prescription = extractor.extract(textract_data)
-        
+
         assert prescription.product.value == "Cosentyx"
         assert prescription.dosage.value == "150mg"
         assert prescription.quantity.value == "2"
@@ -94,22 +103,24 @@ class TestPrescriptionExtractor:
         """Test prescription validation."""
         extractor = PrescriptionExtractor()
         textract_data = {"forms": sample_forms_data}
-        
+
         prescription = extractor.extract(textract_data)
-        
+
         assert prescription.is_valid()
 
     def test_refills_default_to_zero(self):
         """Test that refills default to 0 when missing."""
         extractor = PrescriptionExtractor()
-        textract_data = {"forms": {
-            "product": "Cosentyx",
-            "dosage": "150mg",
-            "quantity": "2",
-            "sig": "Inject 1 pen weekly"
-        }}
-        
+        textract_data = {
+            "forms": {
+                "product": "Cosentyx",
+                "dosage": "150mg",
+                "quantity": "2",
+                "sig": "Inject 1 pen weekly",
+            }
+        }
+
         prescription = extractor.extract(textract_data)
-        
+
         assert prescription.refills.value == "0"
         assert prescription.refills.validated

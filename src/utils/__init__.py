@@ -1,4 +1,5 @@
 """Utilities package."""
+
 from src.utils.logger import get_logger
 from src.utils.formatters import (
     format_phone,

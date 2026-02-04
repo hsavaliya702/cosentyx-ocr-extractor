@@ -1,4 +1,5 @@
 """S3 helper utilities for file operations."""
+
 import io
 from typing import Optional
 
@@ -22,12 +23,12 @@ class S3Helper:
         self, file_bytes: bytes, key: str, content_type: str = "application/pdf"
     ) -> bool:
         """Upload file to S3.
-        
+
         Args:
             file_bytes: File content as bytes
             key: S3 object key
             content_type: MIME type of the file
-            
+
         Returns:
             bool: True if upload successful, False otherwise
         """
@@ -46,17 +47,19 @@ class S3Helper:
 
     def download_file(self, key: str) -> Optional[bytes]:
         """Download file from S3.
-        
+
         Args:
             key: S3 object key
-            
+
         Returns:
             bytes: File content or None if download fails
         """
         try:
             response = self.client.get_object(Bucket=self.bucket_name, Key=key)
             file_bytes = response["Body"].read()
-            logger.info(f"Successfully downloaded file from s3://{self.bucket_name}/{key}")
+            logger.info(
+                f"Successfully downloaded file from s3://{self.bucket_name}/{key}"
+            )
             return file_bytes
         except Exception as e:
             logger.error(f"Failed to download file from S3: {str(e)}")
@@ -64,26 +67,28 @@ class S3Helper:
 
     def move_to_processed(self, source_key: str) -> bool:
         """Move file to processed folder.
-        
+
         Args:
             source_key: Source S3 object key
-            
+
         Returns:
             bool: True if move successful, False otherwise
         """
         try:
-            destination_key = f"{settings.s3_processed_prefix}{source_key.split('/')[-1]}"
-            
+            destination_key = (
+                f"{settings.s3_processed_prefix}{source_key.split('/')[-1]}"
+            )
+
             # Copy to destination
             self.client.copy_object(
                 Bucket=self.bucket_name,
                 CopySource={"Bucket": self.bucket_name, "Key": source_key},
                 Key=destination_key,
             )
-            
+
             # Delete source
             self.client.delete_object(Bucket=self.bucket_name, Key=source_key)
-            
+
             logger.info(f"Moved file from {source_key} to {destination_key}")
             return True
         except Exception as e:
@@ -92,26 +97,26 @@ class S3Helper:
 
     def move_to_failed(self, source_key: str) -> bool:
         """Move file to failed folder.
-        
+
         Args:
             source_key: Source S3 object key
-            
+
         Returns:
             bool: True if move successful, False otherwise
         """
         try:
             destination_key = f"{settings.s3_failed_prefix}{source_key.split('/')[-1]}"
-            
+
             # Copy to destination
             self.client.copy_object(
                 Bucket=self.bucket_name,
                 CopySource={"Bucket": self.bucket_name, "Key": source_key},
                 Key=destination_key,
             )
-            
+
             # Delete source
             self.client.delete_object(Bucket=self.bucket_name, Key=source_key)
-            
+
             logger.info(f"Moved file from {source_key} to {destination_key}")
             return True
         except Exception as e:

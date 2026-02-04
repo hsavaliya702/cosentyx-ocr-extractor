@@ -1,4 +1,5 @@
 """Business logic validation and rules."""
+
 from typing import Dict, List, Tuple
 from src.models.extraction_result import ExtractionResult
 from src.utils.logger import get_logger
@@ -15,32 +16,32 @@ class BusinessRules:
 
     def check_duplicate(self, result: ExtractionResult) -> Tuple[bool, str]:
         """Check for duplicate submission.
-        
+
         Args:
             result: Extraction result
-            
+
         Returns:
             Tuple[bool, str]: (is_duplicate, signature)
         """
         # Create signature from patient + prescription
         patient_sig = result.patient.get_signature()
         prescription_sig = result.prescription.get_signature()
-        
+
         combined_sig = f"{patient_sig}_{prescription_sig}"
-        
+
         if combined_sig in self.duplicate_signatures:
             logger.warning(f"Duplicate detected: {combined_sig}")
             return True, combined_sig
-        
+
         self.duplicate_signatures.add(combined_sig)
         return False, combined_sig
 
     def validate_document_type(self, document_type: str) -> bool:
         """Validate that document type is acceptable.
-        
+
         Args:
             document_type: Document type from classifier
-            
+
         Returns:
             bool: True if document type is acceptable
         """
@@ -49,7 +50,7 @@ class BusinessRules:
 
     def apply_routing_rules(self, result: ExtractionResult) -> None:
         """Apply business rules and determine routing.
-        
+
         Args:
             result: Extraction result (modified in place)
         """
@@ -72,12 +73,12 @@ class BusinessRules:
 
     def _check_low_confidence_warnings(self, result: ExtractionResult) -> None:
         """Check for low confidence fields and add warnings.
-        
+
         Args:
             result: Extraction result (modified in place)
         """
         low_confidence_threshold = 0.85
-        
+
         # Check patient fields
         for field_name, field in [
             ("first_name", result.patient.first_name),

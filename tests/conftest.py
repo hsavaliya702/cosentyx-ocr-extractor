@@ -1,4 +1,5 @@
 """Pytest configuration and fixtures."""
+
 import pytest
 from unittest.mock import Mock, MagicMock
 from typing import Dict, List
@@ -13,13 +14,13 @@ def sample_textract_response() -> Dict:
                 "BlockType": "LINE",
                 "Id": "line-1",
                 "Text": "Patient First Name: John",
-                "Confidence": 95.5
+                "Confidence": 95.5,
             },
             {
                 "BlockType": "LINE",
                 "Id": "line-2",
                 "Text": "Patient Last Name: Doe",
-                "Confidence": 96.2
+                "Confidence": 96.2,
             },
             {
                 "BlockType": "KEY_VALUE_SET",
@@ -27,29 +28,22 @@ def sample_textract_response() -> Dict:
                 "EntityTypes": ["KEY"],
                 "Relationships": [
                     {"Type": "VALUE", "Ids": ["kv-2"]},
-                    {"Type": "CHILD", "Ids": ["word-1"]}
-                ]
+                    {"Type": "CHILD", "Ids": ["word-1"]},
+                ],
             },
             {
                 "BlockType": "KEY_VALUE_SET",
                 "Id": "kv-2",
                 "EntityTypes": ["VALUE"],
-                "Relationships": [
-                    {"Type": "CHILD", "Ids": ["word-2"]}
-                ]
+                "Relationships": [{"Type": "CHILD", "Ids": ["word-2"]}],
             },
             {
                 "BlockType": "WORD",
                 "Id": "word-1",
                 "Text": "patient first name",
-                "Confidence": 95.0
+                "Confidence": 95.0,
             },
-            {
-                "BlockType": "WORD",
-                "Id": "word-2",
-                "Text": "John",
-                "Confidence": 96.0
-            }
+            {"BlockType": "WORD", "Id": "word-2", "Text": "John", "Confidence": 96.0},
         ]
     }
 
@@ -78,7 +72,7 @@ def sample_forms_data() -> Dict[str, str]:
         "sig": "Inject 1 pen weekly",
         "refills": "3",
         "signature name": "Dr. Jane Smith",
-        "signature date": "01/28/2024"
+        "signature date": "01/28/2024",
     }
 
 
@@ -89,7 +83,7 @@ def sample_payload_data() -> Dict:
         "first_name": "John",
         "last_name": "Doe",
         "dob": "01/15/1980",
-        "gender": "M"
+        "gender": "M",
     }
 
 
@@ -97,9 +91,7 @@ def sample_payload_data() -> Dict:
 def mock_textract_client():
     """Mock Textract client."""
     client = Mock()
-    client.analyze_document = Mock(return_value={
-        "Blocks": []
-    })
+    client.analyze_document = Mock(return_value={"Blocks": []})
     return client
 
 
@@ -108,7 +100,9 @@ def mock_bedrock_client():
     """Mock Bedrock client."""
     client = Mock()
     response_body = Mock()
-    response_body.read = Mock(return_value=b'{"content": [{"text": "{\\"document_type\\": \\"ema_start_form\\", \\"confidence\\": 0.95}"}]}')
+    response_body.read = Mock(
+        return_value=b'{"content": [{"text": "{\\"document_type\\": \\"ema_start_form\\", \\"confidence\\": 0.95}"}]}'
+    )
     client.invoke_model = Mock(return_value={"body": response_body})
     return client
 

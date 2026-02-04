@@ -1,8 +1,10 @@
 """Application settings management using Pydantic."""
+
 import os
 from functools import lru_cache
 from typing import Optional
 
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -37,18 +39,15 @@ class Settings(BaseSettings):
     dynamodb_table_name: Optional[str] = "cosentyx-extractions"
     dynamodb_region: str = "us-east-1"
 
-    class Config:
-        """Pydantic configuration."""
-
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = ConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False
+    )
 
 
 @lru_cache()
 def get_settings() -> Settings:
     """Get cached settings instance.
-    
+
     Returns:
         Settings: Application settings
     """
