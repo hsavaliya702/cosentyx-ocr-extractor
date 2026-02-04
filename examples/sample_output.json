@@ -1,0 +1,197 @@
+{
+  "document_id": "550e8400-e29b-41d4-a716-446655440000",
+  "document_type": "ema_start_form",
+  "classification_confidence": 0.98,
+  "extraction_timestamp": "2024-01-29T15:30:00Z",
+  "validation_status": "complete",
+  "patient": {
+    "first_name": {
+      "value": "John",
+      "source": "form",
+      "confidence": 0.99,
+      "validated": true,
+      "original_value": null
+    },
+    "last_name": {
+      "value": "Doe",
+      "source": "form",
+      "confidence": 0.98,
+      "validated": true,
+      "original_value": null
+    },
+    "dob": {
+      "value": "01/15/1980",
+      "source": "payload",
+      "confidence": 1.0,
+      "validated": true,
+      "original_value": "1/15/80"
+    },
+    "gender": {
+      "value": "M",
+      "source": "form",
+      "confidence": 0.95,
+      "validated": true,
+      "original_value": "Male"
+    },
+    "phone": {
+      "value": "(555) 123-4567",
+      "source": "form",
+      "confidence": 0.92,
+      "validated": true,
+      "original_value": "555-123-4567"
+    },
+    "email": {
+      "value": "john.doe@email.com",
+      "source": "form",
+      "confidence": 0.88,
+      "validated": true,
+      "original_value": null
+    },
+    "preferred_language": {
+      "value": "English",
+      "source": "form",
+      "confidence": 0.90,
+      "validated": true,
+      "original_value": null
+    }
+  },
+  "prescriber": {
+    "first_name": {
+      "value": "Jane",
+      "source": "form",
+      "confidence": 0.98,
+      "validated": true,
+      "original_value": null
+    },
+    "last_name": {
+      "value": "Smith",
+      "source": "form",
+      "confidence": 0.99,
+      "validated": true,
+      "original_value": null
+    },
+    "npi": {
+      "value": "1234567890",
+      "source": "form",
+      "confidence": 0.99,
+      "validated": true,
+      "original_value": "123-456-7890"
+    },
+    "address": {
+      "street": {
+        "value": "123 Medical Dr",
+        "source": "form",
+        "confidence": 0.95,
+        "validated": true,
+        "original_value": null
+      },
+      "city": {
+        "value": "Boston",
+        "source": "form",
+        "confidence": 0.97,
+        "validated": true,
+        "original_value": null
+      },
+      "state": {
+        "value": "MA",
+        "source": "form",
+        "confidence": 0.99,
+        "validated": true,
+        "original_value": "ma"
+      },
+      "zip": {
+        "value": "02101",
+        "source": "form",
+        "confidence": 0.98,
+        "validated": true,
+        "original_value": null
+      }
+    },
+    "phone": {
+      "value": "(555) 987-6543",
+      "source": "form",
+      "confidence": 0.94,
+      "validated": true,
+      "original_value": "5559876543"
+    },
+    "fax": {
+      "value": null,
+      "source": "form",
+      "confidence": 0.0,
+      "validated": false,
+      "original_value": null
+    }
+  },
+  "prescription": {
+    "product": {
+      "value": "Cosentyx",
+      "source": "form",
+      "confidence": 0.99,
+      "validated": true,
+      "original_value": null
+    },
+    "dosage": {
+      "value": "150mg",
+      "source": "form",
+      "confidence": 0.97,
+      "validated": true,
+      "original_value": null
+    },
+    "quantity": {
+      "value": "2",
+      "source": "form",
+      "confidence": 0.98,
+      "validated": true,
+      "original_value": null
+    },
+    "sig": {
+      "value": "Inject 1 pen weekly",
+      "source": "form",
+      "confidence": 0.92,
+      "validated": true,
+      "original_value": null
+    },
+    "refills": {
+      "value": "3",
+      "source": "form",
+      "confidence": 0.95,
+      "validated": true,
+      "original_value": null
+    }
+  },
+  "attestation": {
+    "signature_present": true,
+    "signature_confidence": 0.89,
+    "name": {
+      "value": "Dr. Jane Smith",
+      "source": "form",
+      "confidence": 0.96,
+      "validated": true,
+      "original_value": null
+    },
+    "date": {
+      "value": "01/28/2024",
+      "source": "form",
+      "confidence": 0.97,
+      "validated": true,
+      "original_value": "1/28/24"
+    }
+  },
+  "validation_errors": [],
+  "warnings": [
+    "Low confidence on email field (0.88)"
+  ],
+  "routing": {
+    "action": "create_full_profile",
+    "create_patient_profile": true,
+    "create_prescriber_profile": true,
+    "create_prescription": true,
+    "manual_review_required": false,
+    "review_reason": null
+  },
+  "metadata": {
+    "processing_time_ms": 2350,
+    "textract_cost_estimate": 0.0015,
+    "bedrock_cost_estimate": 0.0008
+  }
+}
