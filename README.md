@@ -1,0 +1,1 @@
+# cosentyx-ocr-extractor
