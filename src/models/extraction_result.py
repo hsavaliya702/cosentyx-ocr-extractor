@@ -69,7 +69,7 @@ class ExtractionResult(BaseModel):
         """Determine routing decision based on validation results."""
         patient_valid = self.patient.is_valid()
         prescriber_valid = self.prescriber.is_valid()
-        prescription_valid = self.prescription.is_valid()
+        prescription_valid = self.prescription.is_valid()  # At least one prescription is valid
         attestation_valid = self.attestation.is_valid()
 
         # Determine routing action

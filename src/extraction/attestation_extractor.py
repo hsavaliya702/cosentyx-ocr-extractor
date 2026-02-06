@@ -40,18 +40,29 @@ class AttestationExtractor(BaseExtractor):
 
         forms = textract_data.get("forms", {})
         signatures = textract_data.get("signatures", [])
+        blocks = textract_data.get("blocks", [])
         attestation_info = AttestationInfo()
 
-        # Detect signature presence
+        # Detect signature presence from signatures list or directly from blocks
+        signature_blocks = [b for b in blocks if b.get("BlockType") == "SIGNATURE"]
+        
         if signatures:
             attestation_info.signature_present = True
             # Use highest confidence signature
             attestation_info.signature_confidence = max(
                 sig.get("confidence", 0.0) for sig in signatures
             )
+        elif signature_blocks:
+            # Fallback: Check for SIGNATURE blocks directly
+            attestation_info.signature_present = True
+            attestation_info.signature_confidence = max(
+                b.get("Confidence", 0.0) / 100.0 for b in signature_blocks
+            )
+            logger.info(f"Detected {len(signature_blocks)} signature blocks directly from Textract")
         else:
             attestation_info.signature_present = False
             attestation_info.signature_confidence = 0.0
+            logger.info("No signatures detected in document")
 
         # Extract attestation name
         attestation_info.name = self._extract_name(forms, payload_data)

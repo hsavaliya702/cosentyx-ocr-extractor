@@ -73,3 +73,39 @@ class BaseExtractor(ABC):
                     return value
 
         return None
+
+    def extract_from_text(
+        self, raw_text: str, keywords: List[str], context_words: int = 5
+    ) -> Optional[str]:
+        """Extract field value from raw OCR text using keyword matching.
+
+        Args:
+            raw_text: Raw OCR extracted text
+            keywords: List of keywords to search for
+            context_words: Number of words to extract after keyword (default: 5)
+
+        Returns:
+            str: Extracted value or None
+        """
+        if not raw_text:
+            return None
+
+        import re
+
+        raw_text_lower = raw_text.lower()
+        for keyword in keywords:
+            keyword_lower = keyword.lower()
+            if keyword_lower in raw_text_lower:
+                # Find position and extract context
+                pattern = rf"{re.escape(keyword_lower)}[:\s]*([^\n]{{0,100}})"
+                match = re.search(pattern, raw_text_lower, re.IGNORECASE)
+                if match:
+                    value = match.group(1).strip()
+                    # Clean up and limit to context_words
+                    words = value.split()[:context_words]
+                    result = " ".join(words).strip()
+                    if result:
+                        logger.debug(f"Extracted '{result}' from text using keyword '{keyword}'")
+                        return result
+
+        return None

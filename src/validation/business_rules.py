@@ -23,11 +23,12 @@ class BusinessRules:
         Returns:
             Tuple[bool, str]: (is_duplicate, signature)
         """
-        # Create signature from patient + prescription
+        # Create signature from patient + prescriptions
         patient_sig = result.patient.get_signature()
-        prescription_sig = result.prescription.get_signature()
+        prescription_sigs = result.prescription.get_signatures()
 
-        combined_sig = f"{patient_sig}_{prescription_sig}"
+        # Combine patient signature with all prescription signatures
+        combined_sig = f"{patient_sig}_{'_'.join(sorted(prescription_sigs))}"
 
         if combined_sig in self.duplicate_signatures:
             logger.warning(f"Duplicate detected: {combined_sig}")
@@ -105,13 +106,16 @@ class BusinessRules:
                     f"Low confidence on prescriber.{field_name} field ({field.confidence:.2f})"
                 )
 
-        # Check prescription fields
-        for field_name, field in [
-            ("product", result.prescription.product),
-            ("dosage", result.prescription.dosage),
-            ("quantity", result.prescription.quantity),
-        ]:
-            if field.value and field.confidence < low_confidence_threshold:
-                result.warnings.append(
-                    f"Low confidence on prescription.{field_name} field ({field.confidence:.2f})"
-                )
+        # Check prescription fields (for each prescription)
+        for i, prescription in enumerate(result.prescription.prescriptions):
+            for field_name, field in [
+                ("product", prescription.product),
+                ("dosage", prescription.dosage),
+                ("form", prescription.form),
+                ("dose_type", prescription.dose_type),
+                ("quantity", prescription.quantity),
+            ]:
+                if field.value and field.confidence < low_confidence_threshold:
+                    result.warnings.append(
+                        f"Low confidence on prescription[{i}].{field_name} field ({field.confidence:.2f})"
+                    )

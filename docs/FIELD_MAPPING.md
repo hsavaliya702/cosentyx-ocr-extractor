@@ -230,72 +230,112 @@ Result: patient.first_name.value = "John"
 
 ## Prescription Information
 
-### Product Name
-**Standardized Field**: `prescription.product`
+The prescription section extracts ONE prescription per form based on checkbox selections. See [MULTIPLE_PRESCRIPTIONS.md](MULTIPLE_PRESCRIPTIONS.md) for detailed logic.
 
-**Recognized Variations**:
-- product
-- drug
-- medication
-- drug name
-- product name
-- cosentyx
-- medicine
+### Core Structure
 
-**Expected Values**: Cosentyx, Cosentyx Pen, Cosentyx Syringe
+Each prescription consists of:
+- **Device Selection**: ONE device checkbox (Sensoready Pen, UnoReady Pen, or Prefilled Syringe)
+- **Dosing Selection**: ONE dosing checkbox (Loading, Maintenance, or Maintenance Increase)
+
+### Product
+**Standardized Field**: `prescription.prescriptions[0].product`
+
+**Expected Values**: 
+- COSENTYX 150mg
+- COSENTYX 300mg
+- COSENTYX 75mg
+
+**Source**: Derived from checkbox context (dosage detection)
 
 ### Dosage
-**Standardized Field**: `prescription.dosage`
+**Standardized Field**: `prescription.prescriptions[0].dosage`
 
-**Recognized Variations**:
-- dosage
-- dose
-- strength
-- drug strength
-- product strength
+**Expected Values**: 
+- 150mg (Adult or Pediatric ≥50kg)
+- 300mg (Adult only)
+- 75mg (Pediatric <50kg)
 
-**Expected Values**: 150mg, 300mg
+**Source**: Extracted from checkbox nearby text
+
+### Form (Device)
+**Standardized Field**: `prescription.prescriptions[0].form`
+
+**Expected Values**:
+- Sensoready Pen
+- UnoReady Pen
+- Prefilled Syringe
+
+**Checkbox Detection**: Left side of form (left < 0.35)
+
+### Dose Type
+**Standardized Field**: `prescription.prescriptions[0].dose_type`
+
+**Expected Values**:
+- Loading (initial 4-week loading dose)
+- Maintenance (ongoing maintenance dose)
+- Maintenance Increase (increased frequency for HS only)
+
+**Checkbox Detection**: Middle-right of form (left 0.35-0.70)
+
+### Patient Type
+**Standardized Field**: `prescription.prescriptions[0].patient_type`
+
+**Expected Values**:
+- Adult
+- Pediatric
+
+**Source**: Derived from dosage (75mg = always Pediatric, 300mg = always Adult, 150mg = depends on context)
 
 ### Quantity
-**Standardized Field**: `prescription.quantity`
+**Standardized Field**: `prescription.prescriptions[0].quantity`
 
-**Recognized Variations**:
-- quantity
-- qty
-- amount
-- number of units
-- units
+**Auto-Populated Values**:
+- Loading: "4" (4 weeks)
+- Maintenance: "12" (12 doses for year)
+- Maintenance Increase: "12" (every 2 weeks)
 
-**Expected Values**: Numeric (1, 2, 3, etc.)
+**Source**: "lookup" (from DOSING_INFO table)
 
 ### SIG (Directions)
-**Standardized Field**: `prescription.sig`
+**Standardized Field**: `prescription.prescriptions[0].sig`
 
-**Recognized Variations**:
-- sig
-- directions
-- instructions
-- directions for use
-- how to use
-- administration
+**Auto-Populated Examples**:
+- "Inject 150 mg subcutaneously on Weeks 0, 1, 2, 3" (Loading)
+- "Inject 150 mg subcutaneously on Week 4, then every 4 weeks thereafter" (Maintenance)
+- "Inject 300 mg subcutaneously every 2 weeks (For patients currently taking COSENTYX every 4 weeks as per label. Loading dose already completed.)" (Maintenance Increase)
 
-**Example Values**:
-- "Inject 1 pen weekly"
-- "Inject 300mg subcutaneously once weekly"
-- "Use as directed"
+**Source**: "lookup" (from DOSING_INFO table)
 
 ### Refills
-**Standardized Field**: `prescription.refills`
+**Standardized Field**: `prescription.prescriptions[0].refills`
 
-**Recognized Variations**:
-- refills
-- number of refills
-- refill
-- rx refills
+**Expected Values**:
+- "N/A" (Loading dose - no refills)
+- "12 or 0" (Maintenance - form allows selection)
+- "12 or 3", "12 or 5" (other refill options)
 
-**Expected Values**: Numeric (0, 1, 2, 3, etc.)
+**Checkbox Detection**: Far right of form (left ≥ 0.70), matched to dosing row
 
-**Default**: "0" if not specified
+**Source**: Extracted from form checkbox context or lookup default
+
+### Validation Rules
+
+**Valid Prescription Requirements**:
+- Product: Must have value
+- Dosage: Must be 75mg, 150mg, or 300mg
+- Form: Must be Sensoready Pen, UnoReady Pen, or Prefilled Syringe
+- Dose Type: Must be Loading, Maintenance, or Maintenance Increase
+- Quantity: Must have value
+- SIG: Must have value
+
+**Mutual Exclusivity** (enforced by PDF form):
+- Only ONE section active (Adult OR Pediatric)
+- Within section: Only ONE dosage (150mg OR 300mg for Adult; 75mg OR 150mg for Pediatric)
+- Within row: Only ONE device selected
+- Within row: Only ONE dosing selected
+
+See [MULTIPLE_PRESCRIPTIONS.md](MULTIPLE_PRESCRIPTIONS.md) for complete details.
 
 ## Attestation Information
 

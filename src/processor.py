@@ -13,6 +13,7 @@ from src.extraction.attestation_extractor import AttestationExtractor
 from src.validation.business_rules import BusinessRules
 from src.models.extraction_result import ExtractionResult, Metadata
 from src.utils.logger import get_logger
+from src.utils.pdf_converter import PDFConverter
 from config.settings import get_settings
 
 logger = get_logger(__name__)
@@ -57,9 +58,42 @@ class CosentyxFormProcessor:
             logger.info("Starting document processing pipeline")
             logger.info("=" * 80)
 
-            # Step 1: OCR with Textract
-            logger.info("Step 1: Performing OCR with AWS Textract")
-            textract_response = self.textract.analyze_document(document_bytes)
+            # Step 0: Convert multi-page PDF to images (one per page)
+            all_pages = []
+            if PDFConverter.is_pdf(document_bytes):
+                logger.info("Step 0: PDF detected, converting all pages to images")
+                all_pages = PDFConverter.convert_all_pages_to_images(document_bytes)
+                if not all_pages:
+                    logger.warning("Multi-page conversion failed, falling back to single page")
+                    single_page = PDFConverter.convert_to_image(document_bytes)
+                    if single_page:
+                        all_pages = [single_page]
+                    else:
+                        logger.error("PDF conversion completely failed")
+                        return self._create_error_result("PDF conversion failed")
+            else:
+                # Already an image
+                all_pages = [document_bytes]
+            
+            logger.info(f"Processing {len(all_pages)} page(s) with Textract")
+
+            # Step 1: OCR with Textract (process each page and merge results)
+            logger.info("Step 1: Performing OCR with AWS Textract on all pages")
+            all_blocks = []
+            for page_num, page_bytes in enumerate(all_pages, start=1):
+                logger.info(f"  Processing page {page_num}/{len(all_pages)}")
+                page_response = self.textract.analyze_document(page_bytes)
+                page_blocks = page_response.get("Blocks", [])
+                # Add page number to each block
+                for block in page_blocks:
+                    block["Page"] = page_num
+                all_blocks.extend(page_blocks)
+                logger.info(f"  Page {page_num}: Found {len(page_blocks)} blocks")
+            
+            logger.info(f"Total blocks from all pages: {len(all_blocks)}")
+            
+            # Combine into single Textract response
+            textract_response = {"Blocks": all_blocks}
             textract_data = self.parser.parse_response(textract_response)
 
             # Step 2: Classify document

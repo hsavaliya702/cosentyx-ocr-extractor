@@ -205,3 +205,66 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# ============================================================================
+# Project-Specific: Cosentyx OCR Extractor
+# ============================================================================
+
+# AWS Credentials & Config
+.aws/
+credentials
+config
+*.pem
+*.key
+
+# Test & Debug Output Files
+output*.txt
+output*.json
+debug*.txt
+quick*.txt
+test_result*.txt
+raw_text.txt
+analyze_output.txt
+analyze_all_checkboxes.txt
+debug_all_checkboxes.txt
+debug_form4_raw.txt
+debug_raw_text.txt
+quick_result.txt
+
+# Pipeline Output Files
+pipeline_output.json
+sample_output.json
+
+# Sample PDFs (potentially containing sensitive data)
+examples/sample_forms/*.pdf
+samples/*.pdf
+*.pdf
+
+# Poppler Installation (Windows)
+poppler-*/
+
+# IDE Settings (VS Code)
+.vscode/settings.json
+.vscode/launch.json
+.vscode/.ropeproject
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Temporary Files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Development Scripts (optional - uncomment if you don't want to track these)
+# dev.ps1
+# install_poppler.ps1
+# test_*.py
+# check_*.py
+# verify_*.py
+# analyze_*.py
+# debug_*.py
+# quick_*.py
+# process_*.py

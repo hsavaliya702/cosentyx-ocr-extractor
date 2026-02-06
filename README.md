@@ -87,6 +87,23 @@ BEDROCK_MODEL_ID=anthropic.claude-3-5-sonnet-20241022-v2:0
 
 ### Usage
 
+#### Run Examples
+
+See comprehensive examples with all fields (patient, prescriber, prescriptions, attestation):
+
+```bash
+# Run all examples including multiple prescription extraction
+python examples/usage_example.py
+```
+
+The examples demonstrate:
+- Complete document processing with all fields
+- Working with payload data
+- Filtering multiple prescriptions
+- JSON export
+- Error handling
+- Batch processing
+
 #### Python API
 
 ```python
@@ -96,7 +113,7 @@ from src.processor import CosentyxFormProcessor
 processor = CosentyxFormProcessor()
 
 # Process a document
-with open("examples/sample_forms/EMA-Start-Form_1.pdf", "rb") as f:
+with open("examples/sample_forms/EMA-Start-Form_2.pdf", "rb") as f:
     document_bytes = f.read()
 
 # Optional: Provide supplemental data
@@ -113,7 +130,15 @@ result = processor.process_document(document_bytes, payload_data)
 print(f"Document Type: {result.document_type}")
 print(f"Validation Status: {result.validation_status}")
 print(f"Routing Action: {result.routing.action}")
+
+# Access patient information
 print(f"Patient: {result.patient.first_name.value} {result.patient.last_name.value}")
+
+# Access multiple prescriptions
+print(f"Total Prescriptions: {len(result.prescription.prescriptions)}")
+for i, rx in enumerate(result.prescription.prescriptions, 1):
+    print(f"  {i}. {rx.get_display_name()}")
+    print(f"     Quantity: {rx.quantity.value}, Refills: {rx.refills.value}")
 ```
 
 #### AWS Lambda
