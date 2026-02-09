@@ -620,6 +620,8 @@ class PrescriptionExtractor(BaseExtractor):
                         candidates.append((match.group(1), line_top, line_left, True))
                         continue
 
+                    # Extract handwritten digit only from the SAME refills line and to the RIGHT of "or"
+                    line_words = []
                     for blk in blocks_for_page:
                         if blk.get("BlockType") != "WORD":
                             continue
@@ -628,42 +630,26 @@ class PrescriptionExtractor(BaseExtractor):
                         bbox = blk.get("Geometry", {}).get("BoundingBox", {})
                         blk_top = bbox.get("Top", 0)
                         blk_left = bbox.get("Left", 0)
-                        if blk_left < 0.75:
+                        if blk_left < 0.70:
                             continue
                         if abs(blk_top - line_top) > 0.02:
                             continue
                         word_text = blk.get("Text", "")
-                        if word_text.isdigit() and word_text != "12":
-                            candidates.append((word_text, line_top, blk_left, False))
+                        if word_text:
+                            line_words.append((blk_left, word_text))
 
-                if not candidates:
-                    # Fallback: pick closest digit in the refills column band
-                    for blk in blocks_for_page:
-                        if blk.get("BlockType") != "WORD":
-                            continue
-                        if blk.get("Page", 1) != page:
-                            continue
-                        bbox = blk.get("Geometry", {}).get("BoundingBox", {})
-                        blk_top = bbox.get("Top", 0)
-                        blk_left = bbox.get("Left", 0)
-                        if blk_left < 0.82:
-                            continue
-                        if abs(blk_top - top) > 0.06:
-                            continue
-                        word_text = blk.get("Text", "")
-                        if not word_text.isdigit():
-                            continue
-                        if word_text == "12":
-                            continue
-                        if len(word_text) > 2:
-                            continue
-                        try:
-                            value_num = int(word_text)
-                        except ValueError:
-                            continue
-                        if value_num < 0 or value_num > 12:
-                            continue
-                        candidates.append((word_text, blk_top, blk_left, False))
+                    if line_words:
+                        line_words.sort(key=lambda x: x[0])
+                        or_left = None
+                        for left, word in line_words:
+                            if word.lower() == "or":
+                                or_left = left
+                                break
+                        for left, word in line_words:
+                            if or_left is not None and left <= or_left:
+                                continue
+                            if word.isdigit() and word != "12":
+                                candidates.append((word, line_top, left, False))
 
                 if not candidates:
                     return None
