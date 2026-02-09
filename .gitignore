@@ -234,14 +234,20 @@ quick_result.txt
 # Pipeline Output Files
 pipeline_output.json
 sample_output.json
+examples/pipeline_output.json
+examples/sample_output.json
 
 # Sample PDFs (potentially containing sensitive data)
 examples/sample_forms/*.pdf
+examples/sample_forms/**/*.pdf
 samples/*.pdf
+samples/**/*.pdf
 *.pdf
 
 # Poppler Installation (Windows)
+poppler-24.08.0/
 poppler-*/
+poppler.zip
 
 # IDE Settings (VS Code)
 .vscode/settings.json
@@ -258,13 +264,13 @@ Thumbs.db
 temp/
 tmp/
 
-# Development Scripts (optional - uncomment if you don't want to track these)
-# dev.ps1
-# install_poppler.ps1
-# test_*.py
-# check_*.py
-# verify_*.py
-# analyze_*.py
-# debug_*.py
-# quick_*.py
-# process_*.py
+# Test Files (development only)
+test_all_combinations.py
+test_textract.py
+test_*.py
+check_*.py
+verify_*.py
+analyze_*.py
+debug_*.py
+quick_*.py
+process_*.py

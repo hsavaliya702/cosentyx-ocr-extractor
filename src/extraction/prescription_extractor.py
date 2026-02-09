@@ -12,45 +12,26 @@ logger = get_logger(__name__)
 class PrescriptionExtractor(BaseExtractor):
     """Extract prescription from form data based on checkbox combinations.
     
-    NEW LOGIC (Per Form Update):
-    =============================
-    Core Rule: ONE Prescription Per Section (1 for Adult AND/OR 1 for Pediatric)
-    
-    Section Structure:
-    - Adult Section: Can have 1 prescription (EITHER 150mg OR 300mg, not both)
-    - Pediatric Section: Can have 1 prescription (EITHER 75mg OR 150mg, not both)
-    - Form can have prescriptions in BOTH Adult AND Pediatric sections simultaneously
-    
+    CURRENT LOGIC:
+    ==============
+    Create prescriptions for ANY selected device/dosing combinations.
+
     Prescription Requirements:
     - A valid prescription = ONE device checkbox + ONE dosing checkbox selected
-    
-    Mutual Exclusivity Rules:
-    - Within Adult section: 150mg ⊕ 300mg (only one dosage per Adult section)
-    - Within Pediatric section: 75mg ⊕ 150mg (only one dosage per Pediatric section)
-    - Within each row: Only ONE device (Sensoready Pen OR UnoReady Pen OR Prefilled Syringe)
-    - Within each row: Only ONE dosing (Loading OR Maintenance OR Maintenance Increase)
-    
-    Valid Scenarios:
-    - Adult 150mg only: 1 prescription
-    - Adult 300mg only: 1 prescription
-    - Pediatric 75mg only: 1 prescription
-    - Pediatric 150mg only: 1 prescription
-    - Adult 150mg + Pediatric 150mg: 2 prescriptions (one per section)
-    - Adult 300mg + Pediatric 75mg: 2 prescriptions (one per section)
-    
-    Valid Combinations Per Section:
+
+    Combinations Per Section (if all selected):
     - Adult 150mg: 2 devices × 2 dosing = 4 possible combinations
-    - Adult 300mg: 3 devices × 3 dosing = 9 possible combinations  
+    - Adult 300mg: 3 devices × 3 dosing = 9 possible combinations
     - Pediatric 75mg: 1 device × 2 dosing = 2 possible combinations
     - Pediatric 150mg: 2 devices × 2 dosing = 4 possible combinations
-    
+
     Examples:
     - Adult 150mg Sensoready Pen + Loading = 1 prescription
     - Adult 300mg UnoReady Pen + Maintenance Increase = 1 prescription
     - Pediatric 150mg Prefilled Syringe + Maintenance = 1 prescription
     - Adult 150mg Pen + Loading + Pediatric 75mg Syringe + Maintenance = 2 prescriptions
-    
-    Note: The PDF form enforces these validation rules, so we extract what's selected.
+
+    Note: We do not enforce one-prescription-per-section; we output all selected combinations.
     """
 
     # Dosing schedules and quantities based on product, patient type, form, and dose type
@@ -120,12 +101,12 @@ class PrescriptionExtractor(BaseExtractor):
                     },
                     "maintenance": {
                         "sig": "Inject 300 mg subcutaneously on Week 4, then every 4 weeks thereafter",
-                        "quantity": "12",
+                        "quantity": "1",
                         "refills": "12 or 0"  # Default, will be extracted from form
                     },
                     "maintenance_increase": {
                         "sig": "Inject 300 mg subcutaneously every 2 weeks (For patients currently taking COSENTYX every 4 weeks as per label. Loading dose already completed.)",
-                        "quantity": "24",
+                        "quantity": "2",
                         "refills": "12 or 0"  # Default, will be extracted from form
                     }
                 },
@@ -137,12 +118,12 @@ class PrescriptionExtractor(BaseExtractor):
                     },
                     "maintenance": {
                         "sig": "Inject 300 mg subcutaneously on Week 4, then every 4 weeks thereafter",
-                        "quantity": "12",
+                        "quantity": "2",
                         "refills": "12 or 0"  # Default, will be extracted from form
                     },
                     "maintenance_increase": {
                         "sig": "Inject 300 mg subcutaneously every 2 weeks (For patients currently taking COSENTYX every 4 weeks as per label. Loading dose already completed.)",
-                        "quantity": "24",
+                        "quantity": "4",
                         "refills": "12 or 0"  # Default, will be extracted from form
                     }
                 },
@@ -154,12 +135,12 @@ class PrescriptionExtractor(BaseExtractor):
                     },
                     "maintenance": {
                         "sig": "Inject 300 mg subcutaneously on Week 4, then every 4 weeks thereafter",
-                        "quantity": "24",
+                        "quantity": "2",
                         "refills": "12 or 0"  # Default, will be extracted from form
                     },
                     "maintenance_increase": {
                         "sig": "Inject 300 mg subcutaneously every 2 weeks (For patients currently taking COSENTYX every 4 weeks as per label. Loading dose already completed.)",
-                        "quantity": "24",
+                        "quantity": "4",
                         "refills": "12 or 0"  # Default, will be extracted from form
                     }
                 }
@@ -267,38 +248,24 @@ class PrescriptionExtractor(BaseExtractor):
     def _detect_from_checkboxes(self, checkboxes: Dict, blocks: List[Dict], raw_text: str, tables: List[List[str]] = None) -> List[Dict[str, str]]:
         """Detect prescriptions from selected checkboxes.
         
-        NEW FORM LOGIC:
+        CURRENT LOGIC:
         ===============
-        The form allows ONE prescription per section (1 for Adult AND/OR 1 for Pediatric):
-        
+        Create prescriptions for any selected device/dosing combinations.
+
         Prescription Structure:
         - ONE device checkbox + ONE dosing checkbox = ONE prescription
-        - Adult section can have 1 prescription
-        - Pediatric section can have 1 prescription
-        - Both sections can have prescriptions simultaneously (e.g., Adult + Pediatric)
-        
-        Section-Level Mutual Exclusivity:
-        - Within Adult: Only ONE dosage (150mg ⊕ 300mg)
-        - Within Pediatric: Only ONE dosage (75mg ⊕ 150mg)
-        
-        Row-Level Mutual Exclusivity:
-        - Within each row: Only ONE device selected
-        - Within each row: Only ONE dosing selected
-        
+
         Expected Selections Per Row:
-        - Adult 150mg: 1 device (Sensoready Pen OR Prefilled Syringe) + 1 dosing (Loading OR Maintenance)
-        - Adult 300mg: 1 device (UnoReady Pen OR Sensoready Pen OR Prefilled Syringe) + 1 dosing (Loading OR Maintenance OR Maintenance-Increased)
-        - Pediatric 75mg: 1 device (Prefilled Syringe) + 1 dosing (Loading OR Maintenance)
-        - Pediatric 150mg: 1 device (Sensoready Pen OR Prefilled Syringe) + 1 dosing (Loading OR Maintenance)
-        
+        - Adult 150mg: devices (Sensoready Pen OR Prefilled Syringe) + dosing (Loading OR Maintenance)
+        - Adult 300mg: devices (UnoReady Pen OR Sensoready Pen OR Prefilled Syringe) + dosing (Loading OR Maintenance OR Maintenance-Increased)
+        - Pediatric 75mg: device (Prefilled Syringe) + dosing (Loading OR Maintenance)
+        - Pediatric 150mg: devices (Sensoready Pen OR Prefilled Syringe) + dosing (Loading OR Maintenance)
+
         Valid Prescription Combinations Per Row:
         - Adult 150mg: 2 devices × 2 dosing = 4 possible combinations
         - Adult 300mg: 3 devices × 3 dosing = 9 possible combinations
         - Pediatric 75mg: 1 device × 2 dosing = 2 possible combinations
         - Pediatric 150mg: 2 devices × 2 dosing = 4 possible combinations
-        
-        Note: PDF form enforces mutual exclusivity within rows and sections. We extract what's
-        selected and log warnings if multiple selections detected (OCR error or form fill error).
         
         Args:
             checkboxes: Dict of {checkbox_id: is_selected}
@@ -448,6 +415,46 @@ class PrescriptionExtractor(BaseExtractor):
                         logger.info(f"Table {table_idx+1} row {row_idx+1}: Found default refills={refills_formatted} ({row_patient_type} {row_dosage} {row_dose_type}) | text: {row_text[:80]}")
         
         logger.info(f"Extracted {len(refills_data)} refills values from table data")
+
+        # Build section headers and product row anchors to improve page/row matching
+        section_headers = []  # List of {page, top, patient_type}
+        product_rows = []  # List of {page, top, dosage, patient_type}
+        for block in blocks:
+            if block.get("BlockType") != "LINE":
+                continue
+            text = block.get("Text", "")
+            if not text:
+                continue
+            text_lower = text.lower()
+            page = block.get("Page", 1)
+            bbox = block.get("Geometry", {}).get("BoundingBox", {})
+            top = bbox.get("Top", 0)
+
+            if "product information (adult)" in text_lower:
+                section_headers.append({"page": page, "top": top, "patient_type": "adult"})
+            elif "product information (pediatric)" in text_lower:
+                section_headers.append({"page": page, "top": top, "patient_type": "pediatric"})
+
+            if "cosentyx" in text_lower and ("150 mg" in text_lower or "300 mg" in text_lower or "75 mg" in text_lower):
+                dosage = None
+                if "300 mg" in text_lower:
+                    dosage = "300mg"
+                elif "150 mg" in text_lower:
+                    dosage = "150mg"
+                elif "75 mg" in text_lower:
+                    dosage = "75mg"
+
+                patient_type = None
+                if "pediatric" in text_lower or "wt<50" in text_lower or "wt <50" in text_lower or "wt≥50" in text_lower or "wt ≥50" in text_lower:
+                    patient_type = "pediatric"
+                elif dosage == "75mg":
+                    patient_type = "pediatric"
+                elif dosage == "300mg":
+                    patient_type = "adult"
+
+                product_rows.append(
+                    {"page": page, "top": top, "dosage": dosage, "patient_type": patient_type, "text": text_lower}
+                )
         
         # Second pass: Analyze selected prescription checkboxes (devices and dosing)
         for checkbox_id, is_selected in checkboxes.items():
@@ -484,13 +491,14 @@ class PrescriptionExtractor(BaseExtractor):
                 
                 vertical_distance = abs(block_top - checkbox_top)
                 horizontal_distance = abs(block_left - checkbox_left)
+                combined_distance = horizontal_distance + (vertical_distance * 2.0)
                 
                 # Collect text from same row (within 3% vertical tolerance)
                 if vertical_distance < 0.03:
                     text = block.get("Text", "")
                     nearby_text_blocks.append({
                         "text": text,
-                        "distance": horizontal_distance,
+                        "distance": combined_distance,
                         "left": block_left
                     })
                     
@@ -499,7 +507,7 @@ class PrescriptionExtractor(BaseExtractor):
                     if vertical_distance < 0.02:
                         same_row_text_blocks.append({
                             "text": text,
-                            "distance": horizontal_distance,
+                            "distance": combined_distance,
                             "left": block_left
                         })
             
@@ -573,13 +581,135 @@ class PrescriptionExtractor(BaseExtractor):
                 "dose_type": None,  # For dosing checkboxes: 'loading', 'maintenance', 'maintenance_increase'
                 "refills": None,  # For refills checkboxes: extracted value like "12" or "3"
             }
+
+            def _find_refills_near_checkbox(page, top, blocks_for_page):
+                import re
+                refills_lines = []
+                for blk in blocks_for_page:
+                    if blk.get("BlockType") != "LINE":
+                        continue
+                    if blk.get("Page", 1) != page:
+                        continue
+                    text = blk.get("Text", "")
+                    if not text:
+                        continue
+                    text_lower = text.lower()
+                    if "refills" not in text_lower:
+                        continue
+                    bbox = blk.get("Geometry", {}).get("BoundingBox", {})
+                    blk_left = bbox.get("Left", 0)
+                    if blk_left < 0.70:
+                        continue
+                    blk_top = bbox.get("Top", 0)
+                    refills_lines.append((blk_top, blk_left, text_lower))
+
+                candidates = []
+                for line_top, line_left, line_text in refills_lines:
+                    if abs(line_top - top) > 0.06:
+                        continue
+                    match = re.search(r'12\s*refills?,?\s*or\s*(\d+)', line_text)
+                    if match and match.group(1) != "12":
+                        candidates.append((match.group(1), line_top, line_left, True))
+                        continue
+                    match = re.search(r'\bor\s*(\d+)\b', line_text)
+                    if match and match.group(1) != "12":
+                        candidates.append((match.group(1), line_top, line_left, True))
+                        continue
+                    match = re.search(r'(\d+)\s*refills?', line_text)
+                    if match and match.group(1) != "12":
+                        candidates.append((match.group(1), line_top, line_left, True))
+                        continue
+
+                    for blk in blocks_for_page:
+                        if blk.get("BlockType") != "WORD":
+                            continue
+                        if blk.get("Page", 1) != page:
+                            continue
+                        bbox = blk.get("Geometry", {}).get("BoundingBox", {})
+                        blk_top = bbox.get("Top", 0)
+                        blk_left = bbox.get("Left", 0)
+                        if blk_left < 0.75:
+                            continue
+                        if abs(blk_top - line_top) > 0.02:
+                            continue
+                        word_text = blk.get("Text", "")
+                        if word_text.isdigit() and word_text != "12":
+                            candidates.append((word_text, line_top, blk_left, False))
+
+                if not candidates:
+                    # Fallback: pick closest digit in the refills column band
+                    for blk in blocks_for_page:
+                        if blk.get("BlockType") != "WORD":
+                            continue
+                        if blk.get("Page", 1) != page:
+                            continue
+                        bbox = blk.get("Geometry", {}).get("BoundingBox", {})
+                        blk_top = bbox.get("Top", 0)
+                        blk_left = bbox.get("Left", 0)
+                        if blk_left < 0.82:
+                            continue
+                        if abs(blk_top - top) > 0.06:
+                            continue
+                        word_text = blk.get("Text", "")
+                        if not word_text.isdigit():
+                            continue
+                        if word_text == "12":
+                            continue
+                        if len(word_text) > 2:
+                            continue
+                        try:
+                            value_num = int(word_text)
+                        except ValueError:
+                            continue
+                        if value_num < 0 or value_num > 12:
+                            continue
+                        candidates.append((word_text, blk_top, blk_left, False))
+
+                if not candidates:
+                    return None
+
+                def score(item):
+                    value, line_top, line_left, _has_inline = item
+                    return abs(line_top - top) + abs(line_left - 0.90)
+
+                candidates.sort(key=score)
+                value = candidates[0][0]
+                return f"12 or {value}"
             
-            # Determine patient_type from context (will be refined based on dosage)
-            if any(marker in context for marker in ["pediatric", "wt<50", "wt <50", "wt≥50", "wt ≥50", "wt<50kg"]):
-                checkbox_info["patient_type"] = "pediatric"
-            else:
-                # Default to adult, but we'll refine this later based on dosage
-                checkbox_info["patient_type"] = "adult"
+            # Determine patient_type and dosage using product row anchors and section headers
+            nearest_row = None
+            nearest_row_distance = None
+            for row in product_rows:
+                if row["page"] != checkbox_page:
+                    continue
+                distance = abs(row["top"] - checkbox_top)
+                if nearest_row_distance is None or distance < nearest_row_distance:
+                    nearest_row_distance = distance
+                    nearest_row = row
+
+            if nearest_row and nearest_row.get("dosage"):
+                checkbox_info["dosage"] = nearest_row["dosage"]
+                if nearest_row.get("patient_type"):
+                    checkbox_info["patient_type"] = nearest_row["patient_type"]
+
+            if not checkbox_info["patient_type"]:
+                nearest_header = None
+                nearest_header_top = None
+                for header in section_headers:
+                    if header["page"] != checkbox_page:
+                        continue
+                    if header["top"] <= checkbox_top:
+                        if nearest_header_top is None or header["top"] > nearest_header_top:
+                            nearest_header_top = header["top"]
+                            nearest_header = header
+                if nearest_header:
+                    checkbox_info["patient_type"] = nearest_header["patient_type"]
+
+            if not checkbox_info["patient_type"]:
+                if any(marker in context for marker in ["pediatric", "wt<50", "wt <50", "wt≥50", "wt ≥50", "wt<50kg"]):
+                    checkbox_info["patient_type"] = "pediatric"
+                else:
+                    checkbox_info["patient_type"] = "adult"
             
             # Extract dosage - prioritize CLOSEST 3 text blocks to avoid cross-contamination
             # Look for dosage patterns in parentheses like (1x150mg/mL), (2x150mg/mL), (1x75mg/mL), etc.
@@ -618,20 +748,21 @@ class PrescriptionExtractor(BaseExtractor):
             # Fallback to full context if closest text doesn't have dosage
             if dosage_from_closest:
                 checkbox_info["dosage"] = dosage_from_closest
-            elif "(2x150" in context:  # 2x150 = 300mg total
-                checkbox_info["dosage"] = "300mg"
-            elif "75 mg" in context or "75mg" in context or "(1x75" in context:
-                checkbox_info["dosage"] = "75mg"
-            elif "300 mg" in context or "300mg" in context or "(1x300" in context:
-                checkbox_info["dosage"] = "300mg"
-            elif "150 mg" in context or "150mg" in context or "(1x150" in context:
-                checkbox_info["dosage"] = "150mg"
-            elif "inject 75" in context:
-                checkbox_info["dosage"] = "75mg"
-            elif "inject 300" in context:
-                checkbox_info["dosage"] = "300mg"
-            elif "inject 150" in context:
-                checkbox_info["dosage"] = "150mg"
+            elif not checkbox_info["dosage"]:
+                if "(2x150" in context:  # 2x150 = 300mg total
+                    checkbox_info["dosage"] = "300mg"
+                elif "75 mg" in context or "75mg" in context or "(1x75" in context:
+                    checkbox_info["dosage"] = "75mg"
+                elif "300 mg" in context or "300mg" in context or "(1x300" in context:
+                    checkbox_info["dosage"] = "300mg"
+                elif "150 mg" in context or "150mg" in context or "(1x150" in context:
+                    checkbox_info["dosage"] = "150mg"
+                elif "inject 75" in context:
+                    checkbox_info["dosage"] = "75mg"
+                elif "inject 300" in context:
+                    checkbox_info["dosage"] = "300mg"
+                elif "inject 150" in context:
+                    checkbox_info["dosage"] = "150mg"
             
             # Refine patient_type based on dosage (dosage-based rules override context)
             if checkbox_info["dosage"] == "75mg":
@@ -642,165 +773,76 @@ class PrescriptionExtractor(BaseExtractor):
                 checkbox_info["patient_type"] = "adult"
             # For 150mg, keep the patient_type from context analysis
             
-            # Classify checkbox type: DEVICE (product) vs DOSING (regimen) vs REFILLS
-            # Use horizontal position as primary classifier:
-            # - Left side (left < 0.35): DEVICE checkboxes
-            # - Middle-right (left 0.35-0.70): DOSING checkboxes
-            # - Far right (left >= 0.70): REFILLS checkboxes
-            #
-            # For device checkboxes, use the CLOSEST text to determine form type
-            
-            # Build same_row_text for all types (from exact same row with tight tolerance)
-            same_row_text = " ".join([b["text"] for b in same_row_text_blocks]).lower()
-            
-            if checkbox_left < 0.35:
-                # LEFT SIDE: DEVICE checkbox
-                # Check the closest text for DEVICE type keywords
-                # When multiple device names appear in context (same row with 2 options),
-                # use position of device names in text to determine which checkbox this is
-                
-                # First try closest_text (most reliable for unique matches)
-                device_matched = False
-                if "unoready" in closest_text and "sensoready" not in closest_text and "syringe" not in closest_text:
-                    checkbox_info["type"] = "device"
-                    checkbox_info["form"] = "unoready_pen"
-                    device_matched = True
-                elif "sensoready" in closest_text and "unoready" not in closest_text and "syringe" not in closest_text:
-                    checkbox_info["type"] = "device"
-                    checkbox_info["form"] = "sensoready_pen"
-                    device_matched = True
-                elif ("prefilled syringe" in closest_text or ("prefilled" in closest_text and "syringe" in closest_text)) and "sensoready" not in closest_text and "unoready" not in closest_text:
-                    checkbox_info["type"] = "device"
-                    checkbox_info["form"] = "syringe"
-                    device_matched = True
-                elif "syringe" in closest_text and "sensoready" not in closest_text and "unoready" not in closest_text:
-                    checkbox_info["type"] = "device"
-                    checkbox_info["form"] = "syringe"
-                    device_matched = True
-                
-                # Fallback: check nearby text blocks to find which device label is closest
-                # Search through sorted nearby_text_blocks (already ordered by distance from checkbox)
-                if not device_matched:
-                    # Iterate through nearby text blocks (sorted by distance) to find first device match
-                    for text_block in nearby_text_blocks[:10]:  # Check closest 10 blocks
-                        block_text = text_block["text"].lower()
-                        
-                        # Check for unoready (avoiding product names)
-                        if "unoready® pen" in block_text or "unoready pen" in block_text:
-                            checkbox_info["type"] = "device"
-                            checkbox_info["form"] = "unoready_pen"
-                            device_matched = True
-                            break
-                        elif "unoready" in block_text and "sensoready" not in block_text:
-                            checkbox_info["type"] = "device"
-                            checkbox_info["form"] = "unoready_pen"
-                            device_matched = True
-                            break
-                        
-                        # Check for sensoready (avoiding "sensoreadypen" product names)
-                        elif "sensoready® pen" in block_text or "sensoready pen" in block_text:
-                            checkbox_info["type"] = "device"
-                            checkbox_info["form"] = "sensoready_pen"
-                            device_matched = True
-                            break
-                        elif "sensoready" in block_text and "unoready" not in block_text:
-                            # Verify it's not "sensoreadypen" (product name)
-                            idx = block_text.find("sensoready")
-                            if idx >= 0 and (idx + 10 >= len(block_text) or block_text[idx+10] in [' ', '®', '\n', '\t', ')']):
-                                checkbox_info["type"] = "device"
-                                checkbox_info["form"] = "sensoready_pen"
-                                device_matched = True
-                                break
-                        
-                        # Check for prefilled syringe
-                        elif "prefilled syringe" in block_text:
-                            checkbox_info["type"] = "device"
-                            checkbox_info["form"] = "syringe"
-                            device_matched = True
-                            break
-                        elif ("prefilled" in block_text and "syringe" in block_text) and "sensoready" not in block_text and "unoready" not in block_text:
-                            checkbox_info["type"] = "device"
-                            checkbox_info["form"] = "syringe"
-                            device_matched = True
-                            break
-                        elif "syringe" in block_text and "sensoready" not in block_text and "unoready" not in block_text:
-                            checkbox_info["type"] = "device"
-                            checkbox_info["form"] = "syringe"
-                            device_matched = True
-                            break
-            elif checkbox_left < 0.70:
-                # MIDDLE-RIGHT: DOSING checkbox
-                # Strategy: Use closest_text (single nearest block) as PRIMARY source
-                # Fall back to context (all nearby blocks) only if closest_text doesn't have clear keywords
-                
-                # STEP 1: Try to classify from closest_text (most reliable - single text block closest to checkbox)
-                dose_type_from_closest = None
-                
-                # Check closest_text for loading dose (excluding "loading dose already completed")
-                if "loading dose: inject" in closest_text or ("loading dose:" in closest_text and "already completed" not in closest_text):
+            # Classify checkbox type: DEVICE (product) vs DOSING (regimen)
+            # Use spatial relationship to nearby text labels (no fixed coordinates).
+            device_candidates = []
+            dosing_candidates = []
+
+            def add_device_candidate(text_block):
+                block_text = text_block["text"].lower()
+                if "unoready" in block_text:
+                    device_candidates.append(("unoready_pen", text_block["distance"]))
+                elif "sensoready" in block_text:
+                    device_candidates.append(("sensoready_pen", text_block["distance"]))
+                elif "prefilled syringe" in block_text or ("prefilled" in block_text and "syringe" in block_text):
+                    device_candidates.append(("syringe", text_block["distance"]))
+                elif "syringe" in block_text:
+                    device_candidates.append(("syringe", text_block["distance"]))
+
+            def add_dosing_candidate(text_block):
+                block_text = text_block["text"].lower()
+                if any(header in block_text for header in ["dosage/quantity", "product information", "refills"]):
+                    return
+                if "maintenance increase" in block_text or "every 2 weeks" in block_text:
+                    dosing_candidates.append(("maintenance_increase", text_block["distance"]))
+                elif "maintenance" in block_text and "loading" not in block_text:
+                    dosing_candidates.append(("maintenance", text_block["distance"]))
+                elif "loading dose" in block_text or "loading" in block_text:
+                    if "loading dose already completed" not in block_text:
+                        dosing_candidates.append(("loading", text_block["distance"]))
+
+            # Prefer closest text for dosing when it has clear keywords
+            dose_type_from_closest = None
+            if "maintenance increase" in closest_text or "every 2 weeks" in closest_text:
+                dose_type_from_closest = "maintenance_increase"
+            elif ("maintenance" in closest_text and "loading" not in closest_text) or "every 4 weeks" in closest_text:
+                dose_type_from_closest = "maintenance"
+            elif "loading dose" in closest_text or "loading" in closest_text:
+                if "loading dose already completed" not in closest_text:
                     dose_type_from_closest = "loading"
-                # Check for maintenance schedules
-                elif "then every 2 weeks" in closest_text or ("every 2 weeks" in closest_text and "every 4 weeks" not in closest_text):
-                    dose_type_from_closest = "maintenance_increase"
-                elif "then every 4 weeks thereafter" in closest_text or "every 4 weeks thereafter" in closest_text or "every 4 weeks" in closest_text:
-                    dose_type_from_closest = "maintenance"
-                # Check for generic maintenance
-                elif "maintenance: inject" in closest_text or ("maintenance:" in closest_text and "loading" not in closest_text):
-                    dose_type_from_closest = "maintenance"
-                
-                # STEP 2: If closest_text gave us a result, use it
-                if dose_type_from_closest:
-                    checkbox_info["type"] = "dosing"
-                    checkbox_info["dose_type"] = dose_type_from_closest
-                else:
-                    # STEP 3: Fall back to context-based position detection
-                    # Find positions of loading dose patterns
-                    loading_patterns = ["loading dose: inject", "loading dose inject", "loading dose:", "loading dose "]
-                    loading_pos = -1
-                    for pattern in loading_patterns:
-                        pos = context.find(pattern)
-                        if pos != -1:
-                            # Exclude "loading dose already completed"
-                            if "loading dose already completed" not in context[max(0, pos-10):pos+50]:
-                                loading_pos = pos
-                                break
-                    
-                    # Find positions of maintenance patterns
-                    maintenance_patterns = [
-                        "maintenance: inject", "maintenance inject",
-                        "then every 2 weeks", "every 2 weeks",
-                        "then every 4 weeks thereafter", "every 4 weeks thereafter", "every 4 weeks",
-                        "maintenance:", "maintenance "
-                    ]
-                    maintenance_pos = -1
-                    maintenance_type = None
-                    for pattern in maintenance_patterns:
-                        pos = context.find(pattern)
-                        if pos != -1:
-                            maintenance_pos = pos
-                            if pattern in ["then every 2 weeks", "every 2 weeks"]:
-                                maintenance_type = "maintenance_increase"
-                            elif pattern in ["then every 4 weeks thereafter", "every 4 weeks thereafter", "every 4 weeks"]:
-                                maintenance_type = "maintenance"
-                            else:
-                                maintenance_type = "maintenance"
-                            break
-                    
-                    # Use position to determine which is closer
-                    if loading_pos != -1 and maintenance_pos != -1:
-                        if loading_pos < maintenance_pos:
-                            checkbox_info["type"] = "dosing"
-                            checkbox_info["dose_type"] = "loading"
-                        else:
-                            checkbox_info["type"] = "dosing"
-                            checkbox_info["dose_type"] = maintenance_type or "maintenance"
-                    elif loading_pos != -1:
+
+            if dose_type_from_closest:
+                checkbox_info["type"] = "dosing"
+                checkbox_info["dose_type"] = dose_type_from_closest
+            else:
+                for text_block in same_row_text_blocks[:10]:
+                    add_device_candidate(text_block)
+                    add_dosing_candidate(text_block)
+
+                if not device_candidates and not dosing_candidates:
+                    for text_block in nearby_text_blocks[:10]:
+                        add_device_candidate(text_block)
+                        add_dosing_candidate(text_block)
+
+                device_candidates.sort(key=lambda x: x[1])
+                dosing_candidates.sort(key=lambda x: x[1])
+
+                if device_candidates or dosing_candidates:
+                    device_choice = device_candidates[0] if device_candidates else None
+                    dosing_choice = dosing_candidates[0] if dosing_candidates else None
+
+                    if device_choice and (not dosing_choice or device_choice[1] <= dosing_choice[1]):
+                        checkbox_info["type"] = "device"
+                        checkbox_info["form"] = device_choice[0]
+                    elif dosing_choice:
                         checkbox_info["type"] = "dosing"
-                        checkbox_info["dose_type"] = "loading"
-                    elif maintenance_pos != -1:
-                        checkbox_info["type"] = "dosing"
-                        checkbox_info["dose_type"] = maintenance_type or "maintenance"
-            # Note: Refills checkboxes (checkbox_left >= 0.70) handled in separate first pass above
+                        checkbox_info["dose_type"] = dosing_choice[0]
+            # Note: Refills checkboxes handled via table parsing above
+
+            if checkbox_info["type"] == "dosing" and checkbox_info["dose_type"] in ["maintenance", "maintenance_increase"]:
+                refills_from_blocks = _find_refills_near_checkbox(checkbox_page, checkbox_top, blocks)
+                if refills_from_blocks:
+                    checkbox_info["refills"] = refills_from_blocks
             
             # Only add if we successfully classified the checkbox (device or dosing only)
             if checkbox_info["type"] and checkbox_info["dosage"] and checkbox_info["patient_type"]:
@@ -839,45 +881,11 @@ class PrescriptionExtractor(BaseExtractor):
         
         logger.info(f"Grouped checkboxes into {len(groups)} product categories")
         
-        # Validate expectations: Check for within-section violations
-        adult_sections = [k for k in groups.keys() if k[0] == 'adult']
-        pediatric_sections = [k for k in groups.keys() if k[0] == 'pediatric']
-        
-        if len(adult_sections) > 1:
-            section_names = [f"Adult {k[1]}" for k in adult_sections]
-            logger.warning(
-                f"⚠️  MULTIPLE ADULT DOSAGES DETECTED: {', '.join(section_names)}. "
-                f"Form should only allow ONE dosage per Adult section (150mg OR 300mg). "
-                f"Possible form fill error or OCR misdetection."
-            )
-        
-        if len(pediatric_sections) > 1:
-            section_names = [f"Pediatric {k[1]}" for k in pediatric_sections]
-            logger.warning(
-                f"⚠️  MULTIPLE PEDIATRIC DOSAGES DETECTED: {', '.join(section_names)}. "
-                f"Form should only allow ONE dosage per Pediatric section (75mg OR 150mg). "
-                f"Possible form fill error or OCR misdetection."
-            )
-        
+        # No exclusivity enforcement: allow multiple dosages and multiple selections per section.
         for key, group in groups.items():
             num_devices = len(group['devices'])
             num_dosings = len(group['dosings'])
             num_prescriptions = num_devices * num_dosings
-            
-            # Validate expectations: Only ONE device and ONE dosing per row
-            if num_devices > 1:
-                device_names = [d['form'].replace('_', ' ').title() for d in group['devices']]
-                logger.warning(
-                    f"⚠️  {key[0].title()} {key[1]}: MULTIPLE DEVICES detected ({', '.join(device_names)}). "
-                    f"Form should only allow ONE device per row. Possible form fill error."
-                )
-            
-            if num_dosings > 1:
-                dosing_names = [d['dose_type'].replace('_', ' ').title() for d in group['dosings']]
-                logger.warning(
-                    f"⚠️  {key[0].title()} {key[1]}: MULTIPLE DOSINGS detected ({', '.join(dosing_names)}). "
-                    f"Form should only allow ONE dosing per row. Possible form fill error."
-                )
             
             logger.info(
                 f"  {key[0].title()} {key[1]}: "
@@ -906,15 +914,18 @@ class PrescriptionExtractor(BaseExtractor):
                 for dosing in dosings:
                     # For maintenance/maintenance_increase doses, find matching refills from table
                     matching_refills = None
+                    if dosing.get("refills"):
+                        matching_refills = dosing.get("refills")
                     if dosing["dose_type"] in ["maintenance", "maintenance_increase"]:
                         # Match refills by patient_type AND dosage AND dose_type
-                        for refills_entry in refills_data:
-                            if (refills_entry["patient_type"] == patient_type and 
-                                refills_entry["dosage"] == dosage and
-                                refills_entry["dose_type"] == dosing["dose_type"]):
-                                matching_refills = refills_entry["refills"]
-                                logger.info(f"   Matched refills: {matching_refills} for {patient_type} {dosage} {dosing['dose_type']}")
-                                break
+                        if not matching_refills:
+                            for refills_entry in refills_data:
+                                if (refills_entry["patient_type"] == patient_type and 
+                                    refills_entry["dosage"] == dosage and
+                                    refills_entry["dose_type"] == dosing["dose_type"]):
+                                    matching_refills = refills_entry["refills"]
+                                    logger.info(f"   Matched refills: {matching_refills} for {patient_type} {dosage} {dosing['dose_type']}")
+                                    break
                     
                     combination = {
                         "dosage": dosage,
@@ -1149,11 +1160,23 @@ class PrescriptionExtractor(BaseExtractor):
         
         # Format form display name for output
         if form == "sensoready_pen":
-            form_display = "Sensoready Pen"
+            if dosage == "300mg":
+                form_display = "Sensoready Pen (2x150 mg/mL)"
+            elif dosage == "150mg":
+                form_display = "Sensoready Pen (1x150 mg/mL)"
+            else:
+                form_display = "Sensoready Pen"
         elif form == "unoready_pen":
-            form_display = "UnoReady Pen"
+            form_display = "UnoReady Pen (1x300 mg/2 mL)"
         elif form == "syringe":
-            form_display = "Prefilled Syringe"
+            if dosage == "300mg":
+                form_display = "Prefilled Syringe (2x150 mg/mL)"
+            elif dosage == "150mg":
+                form_display = "Prefilled Syringe (1x150 mg/mL)"
+            elif dosage == "75mg":
+                form_display = "Prefilled Syringe (1x75 mg/mL)"
+            else:
+                form_display = "Prefilled Syringe"
         else:
             form_display = form.replace("_", " ").title()
         
@@ -1171,6 +1194,22 @@ class PrescriptionExtractor(BaseExtractor):
         else:
             refills_value = dosing_info.get("refills", "12")  # Fallback for other types
         
+        # Calculate quantity based on dosing schedule and device strength
+        doses_per_28_days = 1
+        if dose_type == "loading":
+            doses_per_28_days = 4
+        elif dose_type == "maintenance_increase":
+            doses_per_28_days = 2
+
+        units_per_dose = 1
+        if dosage == "300mg":
+            if form in ["sensoready_pen", "syringe"]:
+                units_per_dose = 2
+            else:
+                units_per_dose = 1
+
+        quantity_value = str(doses_per_28_days * units_per_dose)
+
         prescription = SinglePrescription(
             product=PrescriptionField(
                 value=product_value,
@@ -1203,7 +1242,7 @@ class PrescriptionExtractor(BaseExtractor):
                 validated=True
             ),
             quantity=PrescriptionField(
-                value=dosing_info.get("quantity", "12"),
+                value=quantity_value,
                 source="lookup",
                 confidence=1.0,
                 validated=True
