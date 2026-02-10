@@ -1,0 +1,397 @@
+"""Prescription information extractor - supports multiple prescriptions."""
+
+from typing import Dict, List, Optional
+from src.extraction.base_extractor import BaseExtractor
+from src.models.prescription import PrescriptionInfo, SinglePrescription, PrescriptionField
+from src.validation.field_validators import FieldValidators
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+class PrescriptionExtractor(BaseExtractor):
+    """Extract multiple prescriptions from form data based on checkbox combinations."""
+
+    # Dosing schedules and quantities based on product, patient type, form, and dose type
+    DOSING_INFO = {
+        "150mg": {
+            "adult": {
+                "pen": {
+                    "loading": {
+                        "sig": "Inject 150 mg subcutaneously on Weeks 0, 1, 2, 3",
+                        "quantity": "4",
+                        "refills": "0"
+                    },
+                    "maintenance": {
+                        "sig": "Inject 150 mg subcutaneously on Week 4, then every 4 weeks thereafter",
+                        "quantity": "12",
+                        "refills": "1"
+                    }
+                },
+                "syringe": {
+                    "loading": {
+                        "sig": "Inject 150 mg subcutaneously on Weeks 0, 1, 2, 3",
+                        "quantity": "4",
+                        "refills": "0"
+                    },
+                    "maintenance": {
+                        "sig": "Inject 150 mg subcutaneously on Week 4, then every 4 weeks thereafter",
+                        "quantity": "12",
+                        "refills": "1"
+                    }
+                }
+            },
+            "pediatric": {
+                "pen": {
+                    "loading": {
+                        "sig": "Inject 150 mg subcutaneously on Weeks 0, 1, 2, 3",
+                        "quantity": "4",
+                        "refills": "0"
+                    },
+                    "maintenance": {
+                        "sig": "Inject 150 mg subcutaneously on Week 4, then every 4 weeks thereafter",
+                        "quantity": "12",
+                        "refills": "1"
+                    }
+                },
+                "syringe": {
+                    "loading": {
+                        "sig": "Inject 150 mg subcutaneously on Weeks 0, 1, 2, 3",
+                        "quantity": "4",
+                        "refills": "0"
+                    },
+                    "maintenance": {
+                        "sig": "Inject 150 mg subcutaneously on Week 4, then every 4 weeks thereafter",
+                        "quantity": "12",
+                        "refills": "1"
+                    }
+                }
+            }
+        },
+        "300mg": {
+            "adult": {
+                "unoready": {
+                    "loading": {
+                        "sig": "Inject 300 mg subcutaneously on Weeks 0, 1, 2, 3",
+                        "quantity": "4",
+                        "refills": "0"
+                    },
+                    "maintenance": {
+                        "sig": "Inject 300 mg subcutaneously on Week 4, then every 4 weeks thereafter",
+                        "quantity": "12",
+                        "refills": "1"
+                    },
+                    "maintenance_increase": {
+                        "sig": "Inject 300 mg subcutaneously every 2 weeks (For patients currently taking COSENTYX every 4 weeks as per label. Loading dose already completed.)",
+                        "quantity": "12",
+                        "refills": "1"
+                    }
+                },
+                "syringe": {
+                    "loading": {
+                        "sig": "Inject 300 mg subcutaneously on Weeks 0, 1, 2, 3",
+                        "quantity": "8",
+                        "refills": "0"
+                    },
+                    "maintenance": {
+                        "sig": "Inject 300 mg subcutaneously on Week 4, then every 4 weeks thereafter",
+                        "quantity": "24",
+                        "refills": "1"
+                    },
+                    "maintenance_increase": {
+                        "sig": "Inject 300 mg subcutaneously every 2 weeks (For patients currently taking COSENTYX every 4 weeks as per label. Loading dose already completed.)",
+                        "quantity": "24",
+                        "refills": "1"
+                    }
+                },
+                "pen": {
+                    "loading": {
+                        "sig": "Inject 300 mg subcutaneously on Weeks 0, 1, 2, 3",
+                        "quantity": "8",
+                        "refills": "0"
+                    },
+                    "maintenance": {
+                        "sig": "Inject 300 mg subcutaneously on Week 4, then every 4 weeks thereafter",
+                        "quantity": "24",
+                        "refills": "1"
+                    }
+                }
+            }
+        },
+        "75mg": {
+            "pediatric": {
+                "syringe": {
+                    "loading": {
+                        "sig": "Inject 75 mg subcutaneously on Weeks 0, 1, 2, 3",
+                        "quantity": "4",
+                        "refills": "0"
+                    },
+                    "maintenance": {
+                        "sig": "Inject 75 mg subcutaneously on Week 4, then every 4 weeks thereafter",
+                        "quantity": "12",
+                        "refills": "1"
+                    }
+                }
+            }
+        }
+    }
+
+    def extract(
+        self, textract_data: Dict, payload_data: Dict = None
+    ) -> PrescriptionInfo:
+        """Extract multiple prescriptions based on checkbox combinations.
+
+        Args:
+            textract_data: Parsed Textract data
+            payload_data: Optional payload data
+
+        Returns:
+            PrescriptionInfo: Container with list of extracted prescriptions
+        """
+        logger.info("Extracting prescription information (multiple prescriptions)")
+
+        forms = textract_data.get("forms", {})
+        raw_text = textract_data.get("raw_text", "")
+        prescription_info = PrescriptionInfo()
+
+        # Detect all checked combinations
+        checked_combinations = self._detect_checked_combinations(forms, raw_text)
+        
+        logger.info(f"Detected {len(checked_combinations)} prescription combinations")
+
+        # Create a SinglePrescription for each combination
+        for combo in checked_combinations:
+            prescription = self._create_prescription(combo)
+            prescription_info.prescriptions.append(prescription)
+            logger.info(f"Created prescription: {prescription.get_display_name()}")
+
+        return prescription_info
+
+    def _detect_checked_combinations(
+        self, forms: Dict, raw_text: str
+    ) -> List[Dict[str, str]]:
+        """Detect all checked prescription combinations from form.
+
+        Returns:
+            List of dicts with keys: dosage, patient_type, form, dose_type
+        """
+        combinations = []
+
+        # Strategy 1: Try to detect checkboxes from form data
+        combinations_from_forms = self._detect_from_forms(forms)
+        if combinations_from_forms:
+            combinations.extend(combinations_from_forms)
+
+        # Strategy 2: Parse from raw text (additional or fallback)
+        combinations_from_text = self._detect_from_raw_text(raw_text)
+        if combinations_from_text:
+            # Merge with form-detected combinations (avoid duplicates)
+            for combo in combinations_from_text:
+                if combo not in combinations:
+                    combinations.append(combo)
+
+        # Strategy 3: Default to common scenario if nothing detected
+        if not combinations:
+            logger.warning("No checkboxes detected, using default prescription")
+            combinations.append({
+                "dosage": "150mg",
+                "patient_type": "adult",
+                "form": "pen",
+                "dose_type": "maintenance"
+            })
+
+        return combinations
+
+    def _detect_from_forms(self, forms: Dict) -> List[Dict[str, str]]:
+        """Detect checked combinations from Textract form data.
+
+        Looks for checkbox fields with SELECTED status.
+        """
+        combinations = []
+        
+        # Search for checkboxes in form data
+        for field_name, field_value in forms.items():
+            field_name_lower = field_name.lower()
+            
+            # Check if this is a checkbox field (marked as SELECTED)
+            if isinstance(field_value, dict):
+                is_selected = field_value.get("value") == "SELECTED" or field_value.get("selected") is True
+            else:
+                is_selected = str(field_value).upper() == "SELECTED"
+            
+            if not is_selected:
+                continue
+
+            # Parse the field name to determine what was selected
+            dosage = self._extract_dosage_from_text(field_name_lower)
+            patient_type = self._extract_patient_type_from_text(field_name_lower)
+            form = self._extract_form_from_text(field_name_lower)
+            dose_type = self._extract_dose_type_from_text(field_name_lower)
+
+            if dosage and form and dose_type:
+                combination = {
+                    "dosage": dosage,
+                    "patient_type": patient_type,
+                    "form": form,
+                    "dose_type": dose_type
+                }
+                
+                # Avoid duplicates
+                if combination not in combinations:
+                    combinations.append(combination)
+                    logger.info(f"Detected checkbox: {combination}")
+
+        return combinations
+
+    def _detect_from_raw_text(self, raw_text: str) -> List[Dict[str, str]]:
+        """Detect prescriptions from raw text by looking for checked markers.
+
+        Looks for patterns like ☑, ✓, [X], SELECTED near prescription options.
+        """
+        combinations = []
+        lines = raw_text.split('\n')
+        
+        for i, line in enumerate(lines):
+            line_lower = line.lower()
+            
+            # Check if line contains a checkbox marker
+            if not any(marker in line for marker in ['☑', '✓', '[x]', 'selected', '☒', '✔']):
+                continue
+
+            # Look at this line and nearby lines for context
+            context = ' '.join(lines[max(0, i-1):min(len(lines), i+3)]).lower()
+            
+            dosage = self._extract_dosage_from_text(context)
+            patient_type = self._extract_patient_type_from_text(context)
+            form = self._extract_form_from_text(context)
+            dose_type = self._extract_dose_type_from_text(context)
+
+            if dosage and form and dose_type:
+                combination = {
+                    "dosage": dosage,
+                    "patient_type": patient_type,
+                    "form": form,
+                    "dose_type": dose_type
+                }
+                
+                if combination not in combinations:
+                    combinations.append(combination)
+                    logger.info(f"Detected from text: {combination}")
+
+        return combinations
+
+    def _extract_dosage_from_text(self, text: str) -> Optional[str]:
+        """Extract dosage from text."""
+        if "150" in text:
+            return "150mg"
+        elif "300" in text:
+            return "300mg"
+        elif "75" in text:
+            return "75mg"
+        return None
+
+    def _extract_patient_type_from_text(self, text: str) -> str:
+        """Extract patient type from text."""
+        if "pediatric" in text or "wt <50" in text or "wt <" in text:
+            return "pediatric"
+        elif "wt ≥50" in text or "wt >=" in text:
+            return "pediatric"  # 150mg for pediatric >=50kg
+        return "adult"
+
+    def _extract_form_from_text(self, text: str) -> Optional[str]:
+        """Extract form from text."""
+        if "sensoready" in text:
+            return "pen"
+        elif "unoready" in text:
+            return "unoready"
+        elif "prefilled syringe" in text or "syringe" in text:
+            return "syringe"
+        elif "pen" in text and "unoready" not in text and "sensoready" not in text:
+            return "pen"
+        return None
+
+    def _extract_dose_type_from_text(self, text: str) -> Optional[str]:
+        """Extract dose type from text."""
+        if "maintenance increase" in text:
+            return "maintenance_increase"
+        elif "loading dose" in text or "loading" in text:
+            return "loading"
+        elif "maintenance" in text:
+            return "maintenance"
+        return None
+
+    def _create_prescription(self, combo: Dict[str, str]) -> SinglePrescription:
+        """Create a SinglePrescription from a combination dict.
+
+        Args:
+            combo: Dict with dosage, patient_type, form, dose_type
+
+        Returns:
+            SinglePrescription with all fields populated
+        """
+        dosage = combo["dosage"]
+        patient_type = combo["patient_type"]
+        form = combo["form"]
+        dose_type = combo["dose_type"]
+
+        # Get dosing info
+        dosing_info = self.DOSING_INFO.get(dosage, {}).get(patient_type, {}).get(form, {}).get(dose_type, {})
+
+        # Create prescription fields
+        product_value = f"COSENTYX {dosage}"
+        
+        # Format dose type for display
+        dose_type_display = dose_type.replace("_", " ").title()
+        
+        prescription = SinglePrescription(
+            product=PrescriptionField(
+                value=product_value,
+                source="form",
+                confidence=0.95,
+                validated=True
+            ),
+            dosage=PrescriptionField(
+                value=dosage,
+                source="form",
+                confidence=0.95,
+                validated=True
+            ),
+            form=PrescriptionField(
+                value=form.capitalize(),
+                source="form",
+                confidence=0.95,
+                validated=True
+            ),
+            dose_type=PrescriptionField(
+                value=dose_type_display,
+                source="form",
+                confidence=0.95,
+                validated=True
+            ),
+            patient_type=PrescriptionField(
+                value=patient_type.capitalize(),
+                source="form",
+                confidence=0.95,
+                validated=True
+            ),
+            quantity=PrescriptionField(
+                value=dosing_info.get("quantity", "12"),
+                source="lookup",
+                confidence=1.0,
+                validated=True
+            ),
+            sig=PrescriptionField(
+                value=dosing_info.get("sig", f"Use as directed"),
+                source="lookup",
+                confidence=1.0,
+                validated=True
+            ),
+            refills=PrescriptionField(
+                value=dosing_info.get("refills", "0"),
+                source="lookup",
+                confidence=1.0,
+                validated=True
+            )
+        )
+
+        return prescription
