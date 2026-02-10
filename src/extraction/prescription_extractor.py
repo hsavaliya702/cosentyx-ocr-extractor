@@ -401,8 +401,11 @@ class PrescriptionExtractor(BaseExtractor):
                         })
                         logger.info(f"Table {table_idx+1} row {row_idx+1}: Found refills={refills_formatted} ({row_patient_type} {row_dosage} {row_dose_type}) | text: {row_text[:80]}")
                     elif '12 refills' in row_text and 'n/a' not in row_text:
-                        # Default refills when no handwritten value (blank or no value entered)
-                        refills_formatted = "12 or 0"
+                        # We see the generic pattern \"12 refills, or ___ refills\" but Textract
+                        # has not captured any handwritten override (no digit after \"or\").
+                        # To avoid incorrectly assuming a value (e.g., 0) when handwriting might
+                        # be present but unreadable, treat the second value as unknown here.
+                        refills_formatted = "12 or Unknown"
                         refills_data.append({
                             "table_row": row_idx,
                             "table_idx": table_idx,

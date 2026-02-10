@@ -1,10 +1,14 @@
 """PDF to image conversion utility."""
 import io
 from typing import Optional, List
+
 from pdf2image import convert_from_bytes
+
+from config.settings import get_settings
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
+settings = get_settings()
 
 
 class PDFConverter:
@@ -13,31 +17,40 @@ class PDFConverter:
     @staticmethod
     def is_pdf(document_bytes: bytes) -> bool:
         """Check if document is a PDF.
-
+        
         Args:
             document_bytes: Document content as bytes
-
+        
         Returns:
             bool: True if document is PDF
         """
         return document_bytes[:4] == b'%PDF'
 
     @staticmethod
-    def convert_to_image(document_bytes: bytes, dpi: int = 300) -> Optional[bytes]:
-        """Convert PDF to image format (PNG for single page).
+    def _effective_dpi(dpi: Optional[int] = None) -> int:
+        """Resolve the DPI to use, falling back to settings or a sane default."""
+        if dpi is not None:
+            return dpi
+        # Use configurable DPI from settings, defaulting to 300 if not set.
+        return getattr(settings, "pdf_conversion_dpi", 300)
 
+    @staticmethod
+    def convert_to_image(document_bytes: bytes, dpi: Optional[int] = None) -> Optional[bytes]:
+        """Convert PDF to image format (PNG for single page).
+        
         Args:
             document_bytes: PDF content as bytes
-            dpi: Resolution for conversion (default 300)
-
+            dpi: Resolution for conversion. If None, uses settings.pdf_conversion_dpi.
+        
         Returns:
             bytes: PNG image bytes of first page, or None if conversion fails
         """
         try:
-            logger.info("Converting PDF to image format for Textract compatibility")
+            effective_dpi = PDFConverter._effective_dpi(dpi)
+            logger.info(f"Converting PDF to image format for Textract compatibility (DPI={effective_dpi})")
             
             # Convert PDF to images (one per page)
-            images = convert_from_bytes(document_bytes, dpi=dpi, fmt='png')
+            images = convert_from_bytes(document_bytes, dpi=effective_dpi, fmt='png')
             
             if not images:
                 logger.error("PDF conversion produced no images")
@@ -63,21 +76,22 @@ class PDFConverter:
             return None
 
     @staticmethod
-    def convert_all_pages_to_images(document_bytes: bytes, dpi: int = 300) -> List[bytes]:
+    def convert_all_pages_to_images(document_bytes: bytes, dpi: Optional[int] = None) -> List[bytes]:
         """Convert ALL pages of PDF to separate PNG images for Textract.
-
+        
         Args:
             document_bytes: PDF content as bytes
-            dpi: Resolution for conversion (default 300)
-
+            dpi: Resolution for conversion. If None, uses settings.pdf_conversion_dpi.
+        
         Returns:
             List[bytes]: List of PNG image bytes (one per page)
         """
         try:
-            logger.info("Converting PDF to multiple PNG images (one per page)")
+            effective_dpi = PDFConverter._effective_dpi(dpi)
+            logger.info(f"Converting PDF to multiple PNG images (one per page, DPI={effective_dpi})")
             
             # Convert PDF to images (one per page)
-            images = convert_from_bytes(document_bytes, dpi=dpi, fmt='png')
+            images = convert_from_bytes(document_bytes, dpi=effective_dpi, fmt='png')
             
             if not images:
                 logger.error("PDF conversion produced no images")

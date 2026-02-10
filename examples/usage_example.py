@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.processor import CosentyxFormProcessor
 
 # PDF filename constants - change these to test with different files
-CosentyxStartForm = "CosentyxStartForm-9.pdf"
+CosentyxStartForm = "CosentyxStartForm-4.pdf"
 
 def example_complete_pipeline():
     """

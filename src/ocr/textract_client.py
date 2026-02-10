@@ -34,9 +34,45 @@ class TextractClient:
                 FeatureTypes=["FORMS", "TABLES", "SIGNATURES"],
             )
 
-            logger.info(
-                f"Textract analysis complete. Found {len(response.get('Blocks', []))} blocks"
-            )
+            blocks = response.get('Blocks', [])
+            logger.info(f"Textract analysis complete. Found {len(blocks)} blocks")
+            
+            # Log block type distribution
+            block_types = {}
+            for block in blocks:
+                block_type = block.get('BlockType', 'UNKNOWN')
+                block_types[block_type] = block_types.get(block_type, 0) + 1
+            
+            logger.info(f"Block types: {dict(sorted(block_types.items()))}")
+            
+            # Log sample blocks for debugging (first 5 of each type)
+            if settings.debug_mode:
+                logger.debug("=" * 80)
+                logger.debug("SAMPLE TEXTRACT BLOCKS (first 5 of each type)")
+                logger.debug("=" * 80)
+                
+                samples_by_type = {}
+                for block in blocks:
+                    block_type = block.get('BlockType', 'UNKNOWN')
+                    if block_type not in samples_by_type:
+                        samples_by_type[block_type] = []
+                    if len(samples_by_type[block_type]) < 5:
+                        samples_by_type[block_type].append(block)
+                
+                for block_type, sample_blocks in sorted(samples_by_type.items()):
+                    logger.debug(f"\n--- {block_type} blocks ({len(sample_blocks)} samples) ---")
+                    for i, block in enumerate(sample_blocks, 1):
+                        logger.debug(f"  Sample {i}:")
+                        logger.debug(f"    Text: {block.get('Text', 'N/A')[:100]}")
+                        logger.debug(f"    Confidence: {block.get('Confidence', 0):.1f}%")
+                        if block_type == 'SELECTION_ELEMENT':
+                            logger.debug(f"    Status: {block.get('SelectionStatus', 'N/A')}")
+                        bbox = block.get('Geometry', {}).get('BoundingBox', {})
+                        if bbox:
+                            logger.debug(f"    Position: top={bbox.get('Top', 0):.3f}, left={bbox.get('Left', 0):.3f}")
+                
+                logger.debug("=" * 80)
+            
             return response
 
         except Exception as e:
@@ -129,11 +165,17 @@ class TextractClient:
             block_map[block["Id"]] = block
 
         # Find table blocks
-        for block in blocks:
+        for table_idx, block in enumerate(blocks):
             if block["BlockType"] == "TABLE":
                 table = self._extract_table_cells(block, block_map)
                 if table:
                     tables.append(table)
+                    
+                    # Log table contents for debugging
+                    if settings.debug_mode:
+                        logger.debug(f"\nTable {table_idx + 1} extracted ({len(table)} rows):")
+                        for row_idx, row in enumerate(table, 1):
+                            logger.debug(f"  Row {row_idx}: {row}")
 
         logger.info(f"Extracted {len(tables)} tables from document")
         return tables
@@ -148,15 +190,24 @@ class TextractClient:
             Dict[str, bool]: Dictionary of checkbox labels to checked status
         """
         checkboxes = {}
+        selected_count = 0
 
         for block in blocks:
             if block["BlockType"] == "SELECTION_ELEMENT":
                 status = block.get("SelectionStatus") == "SELECTED"
-                # Try to find associated label (simplified)
                 geometry = block.get("Geometry", {})
                 checkboxes[block["Id"]] = status
+                
+                if status:
+                    selected_count += 1
+                    
+                    # Log selected checkboxes with nearby text for debugging
+                    if settings.debug_mode:
+                        bbox = geometry.get("BoundingBox", {})
+                        page = block.get("Page", 1)
+                        logger.debug(f"  ✓ Selected checkbox at page={page}, top={bbox.get('Top', 0):.3f}, left={bbox.get('Left', 0):.3f}")
 
-        logger.info(f"Extracted {len(checkboxes)} checkboxes from document")
+        logger.info(f"Extracted {len(checkboxes)} checkboxes from document ({selected_count} selected)")
         return checkboxes
 
     def detect_signatures(self, blocks: List[Dict]) -> List[Dict]:

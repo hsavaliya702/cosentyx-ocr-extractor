@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     textract_confidence_threshold: float = 0.85
     textract_max_retries: int = 3
 
+    # PDF Conversion
+    # Higher DPI can improve OCR of small handwriting at the cost of larger images.
+    # 400 is a good balance for Cosentyx forms; adjust via env var if needed.
+    pdf_conversion_dpi: int = 400
+
     # Bedrock Configuration
     bedrock_model_id: str = "anthropic.claude-3-5-sonnet-20241022-v2:0"
     bedrock_max_tokens: int = 4096
@@ -32,6 +37,7 @@ class Settings(BaseSettings):
 
     # Application Configuration
     log_level: str = "INFO"
+    debug_mode: bool = False  # Enable detailed Textract output logging
     enable_duplicate_check: bool = True
     enable_bedrock_validation: bool = True
 

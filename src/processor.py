@@ -62,10 +62,15 @@ class CosentyxFormProcessor:
             all_pages = []
             if PDFConverter.is_pdf(document_bytes):
                 logger.info("Step 0: PDF detected, converting all pages to images")
-                all_pages = PDFConverter.convert_all_pages_to_images(document_bytes)
+                # Use configurable DPI for better OCR of small handwriting (e.g., refill digits)
+                all_pages = PDFConverter.convert_all_pages_to_images(
+                    document_bytes, dpi=settings.pdf_conversion_dpi
+                )
                 if not all_pages:
                     logger.warning("Multi-page conversion failed, falling back to single page")
-                    single_page = PDFConverter.convert_to_image(document_bytes)
+                    single_page = PDFConverter.convert_to_image(
+                        document_bytes, dpi=settings.pdf_conversion_dpi
+                    )
                     if single_page:
                         all_pages = [single_page]
                     else:
