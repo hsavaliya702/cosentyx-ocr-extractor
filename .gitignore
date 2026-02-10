@@ -135,7 +135,10 @@ celerybeat.pid
 *.sage.py
 
 # Environments
+# Keep .env.example for documentation, but ignore actual .env with secrets
 .env
+.env.local
+.env.production
 .envrc
 .venv
 env/
@@ -231,18 +234,16 @@ debug_form4_raw.txt
 debug_raw_text.txt
 quick_result.txt
 
-# Pipeline Output Files
-pipeline_output.json
-sample_output.json
+# Pipeline Output Files - only ignore generated outputs, not reference files
 examples/pipeline_output.json
 examples/sample_output.json
 
 # Sample PDFs (potentially containing sensitive data)
+# Only ignore PDFs in sample_forms directory, not elsewhere
 examples/sample_forms/*.pdf
 examples/sample_forms/**/*.pdf
-samples/*.pdf
-samples/**/*.pdf
-*.pdf
+# Optionally: Keep one sample PDF for testing (uncomment if needed)
+# !examples/sample_forms/CosentyxStartForm-1.pdf
 
 # Poppler Installation (Windows)
 poppler-24.08.0/
@@ -264,13 +265,18 @@ Thumbs.db
 temp/
 tmp/
 
-# Test Files (development only)
-test_all_combinations.py
-test_textract.py
-test_*.py
-check_*.py
-verify_*.py
-analyze_*.py
-debug_*.py
-quick_*.py
-process_*.py
+# Temporary Test/Debug Scripts (root level only, not tests/ directory)
+# IMPORTANT: Don't ignore files in tests/ directory (legitimate test suite)
+/test_all_combinations.py
+/test_textract.py
+/check_*.py
+/verify_*.py
+/analyze_*.py
+/quick_*.py
+/process_single_*.py
+
+# Temporary Debug Scripts in examples/ (not official examples)
+examples/debug_*.py
+examples/test_*.py
+examples/quick_*.py
+examples/analyze_*.py
